@@ -1,0 +1,39 @@
+# Fictional package: replace it and provision the mise environment before use.
+modelVersion: "0.1"
+id: example-stdio
+name: Example stdio MCP
+runtimes:
+  - id: host
+    kind: host
+commands:
+  - id: mcp-command
+    runtimeRef: host
+    workingDirectory: /var/lib/mcp-stack/environments/example-stdio
+    executable: { kind: path-name, name: mise }
+    args: [exec, --, npx, -y, "@example/docs-mcp@1.0.0"]
+    environment:
+      - name: EXAMPLE_API_KEY
+        valueFrom: { secretSourceRef: api-key }
+        required: true
+secretSources:
+  - id: api-key
+    kind: secret-reference
+    provider: control-plane-store
+transports:
+  - id: stdio
+    kind: stdio
+    commandRef: mcp-command
+mcpServers:
+  - id: docs-mcp
+    name: Example docs MCP
+    transportRef: stdio
+lifecyclePolicies:
+  - id: client-session
+    ownership: session-owned
+    activation: on-demand
+components:
+  - id: mcp
+    name: Example docs MCP
+    enabled: true
+    subject: { mcpServerRef: docs-mcp }
+    lifecyclePolicyRef: client-session

@@ -1,0 +1,757 @@
+openapi: 3.1.0
+info:
+  title: MCPStack API
+  version: 0.1.0
+  description: Configuration, runtime observation, validation, and lifecycle API for the local MCPStack.
+paths:
+  /api/v1/contracts/stack-configuration:
+    get:
+      operationId: getStackConfigurationContract
+      responses:
+        "200":
+          description: The implementation-neutral Stack configuration JSON Schema.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/v1/stacks:
+    get:
+      operationId: listStacks
+      responses:
+        "200":
+          description: Configured Stack summaries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StackDiscovery"
+    post:
+      operationId: createStack
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StackCreateRequest" }
+      responses:
+        "201":
+          description: A new validated direct-child Stack source was created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StackCreateResult" }
+  /api/v1/stacks/validation-previews:
+    post:
+      operationId: previewNewStackConfiguration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StackCreateRequest" }
+      responses:
+        "200":
+          description: Validation result for a not-yet-created Stack source.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConfigurationValidationPreview" }
+  /api/v1/stacks/{stackId}:
+    get:
+      operationId: getStack
+      parameters:
+        - name: stackId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Durable Stack configuration with a separate runtime observation snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StackView"
+        "404":
+          description: Stack not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    delete:
+      operationId: deleteStack
+      parameters:
+        - { name: stackId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeleteRequest" }
+      responses:
+        "200":
+          description: Owned managed Components were stopped and the Stack and associated tunnel profiles were deleted.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StackDeleteResult" }
+        "409":
+          description: Source revision, repository, or owned lifecycle conflict.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Problem" }
+  /api/v1/stacks/{stackId}/source:
+    get:
+      operationId: getEditableStackSource
+      parameters:
+        - name: stackId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The complete UTF-8 YAML source for an existing valid Stack.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EditableStackSource"
+        "404":
+          description: Stack not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    put:
+      operationId: saveStackConfiguration
+      parameters:
+        - name: stackId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfigurationWriteRequest"
+      responses:
+        "200":
+          description: Exact candidate bytes were validated and saved, or were already current.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigurationWriteResult"
+        "409":
+          description: Source revision or repository manifest conflict.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "422":
+          description: Candidate validation or trusted-workspace policy failure.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /api/v1/stacks/{stackId}/observations:
+    get:
+      operationId: getStackObservations
+      parameters:
+        - name: stackId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: On-demand transient execution observations for one configured Stack.
+          content:
+            application/json:
+              schema:
+                $ref: "./runtime-snapshot.schema.json"
+        "404":
+          description: Stack not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /api/v1/stacks/{stackId}/validation-previews:
+    post:
+      operationId: previewStackConfiguration
+      parameters:
+        - name: stackId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfigurationValidationPreviewRequest"
+      responses:
+        "200":
+          description: Validation result for the in-memory candidate; no file is modified.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigurationValidationPreview"
+        "404":
+          description: Stack not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "422":
+          description: Candidate request is malformed or exceeds the supported preview size.
+  /api/v1/stacks/{stackId}/secrets:
+    get:
+      operationId: listStackSecrets
+      parameters:
+        - { name: stackId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Write-only secret slot metadata; values are never returned.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/SecretMetadata" }
+  /api/v1/stacks/{stackId}/secrets/{secretSourceId}:
+    parameters:
+      - { name: stackId, in: path, required: true, schema: { type: string } }
+      - { name: secretSourceId, in: path, required: true, schema: { type: string } }
+    put:
+      operationId: replaceStackSecret
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SecretValueRequest" }
+      responses:
+        "200":
+          description: Secret slot replaced; its value is not returned.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SecretMetadata" }
+    delete:
+      operationId: deleteStackSecret
+      responses:
+        "200":
+          description: Secret slot cleared.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SecretMetadata" }
+  /api/v1/stacks/{stackId}/components/{componentId}/lifecycle:
+    get:
+      operationId: getComponentLifecycle
+      parameters:
+        - { name: stackId, in: path, required: true, schema: { type: string } }
+        - { name: componentId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Managed lifecycle eligibility and current provider observation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComponentLifecycle"
+  /api/v1/stacks/{stackId}/components/{componentId}/lifecycle-actions:
+    post:
+      operationId: actOnComponentLifecycle
+      parameters:
+        - { name: stackId, in: path, required: true, schema: { type: string } }
+        - { name: componentId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LifecycleActionRequest"
+      responses:
+        "200":
+          description: Provider observation after the requested action.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LifecycleObservation"
+  /api/v1/stacks/{stackId}/components/{componentId}/logs:
+    get:
+      operationId: getComponentLogs
+      parameters:
+        - { name: stackId, in: path, required: true, schema: { type: string } }
+        - { name: componentId, in: path, required: true, schema: { type: string } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses:
+        "200":
+          description: Bounded ANSI-sanitized recent systemd journal lines.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecentLogs"
+  /api/v1/tunnel-client:
+    get:
+      operationId: getTunnelClient
+      responses:
+        "200":
+          description: Managed tunnel-client installation and credential status.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TunnelClient" }
+  /api/v1/tunnel-client/credential:
+    put:
+      operationId: setTunnelCredential
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TunnelCredentialRequest" }
+      responses:
+        "200":
+          description: Credential was stored privately; its value is not returned.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TunnelClient" }
+  /api/v1/tunnel-profiles:
+    get:
+      operationId: listTunnelProfiles
+      responses:
+        "200":
+          description: Valid and invalid direct-child tunnel-client profiles.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TunnelProfile" }
+    post:
+      operationId: createTunnelProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TunnelProfileCreateRequest" }
+      responses:
+        "201":
+          description: A private inactive tunnel profile was created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TunnelProfile" }
+  /api/v1/tunnel-profiles/{profileId}:
+    parameters:
+      - { name: profileId, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getTunnelProfile
+      responses:
+        "200":
+          description: One tunnel profile with its transient lifecycle observation.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TunnelProfile" }
+    put:
+      operationId: updateTunnelProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TunnelProfileUpdateRequest" }
+      responses:
+        "200":
+          description: The revision-checked private tunnel profile was replaced.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TunnelProfile" }
+        "409":
+          description: Tunnel profile revision conflict.
+    delete:
+      operationId: deleteTunnelProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeleteRequest" }
+      responses:
+        "200":
+          description: The tunnel execution was stopped and its profile was deleted.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TunnelProfileDeleteResult" }
+        "409":
+          description: Tunnel profile revision conflict.
+  /api/v1/tunnel-profiles/{profileId}/lifecycle-actions:
+    post:
+      operationId: actOnTunnelProfile
+      parameters:
+        - { name: profileId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LifecycleActionRequest" }
+      responses:
+        "200":
+          description: Profile execution observation after the requested action.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LifecycleObservation" }
+  /api/v1/tunnel-profiles/{profileId}/logs:
+    get:
+      operationId: getTunnelProfileLogs
+      parameters:
+        - { name: profileId, in: path, required: true, schema: { type: string } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses:
+        "200":
+          description: Bounded recent journal lines for a tunnel profile.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecentLogs" }
+components:
+  schemas:
+    StackSummary:
+      type: object
+      additionalProperties: false
+      required: [id, name, componentCount, configurationRevision, source]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: [string, "null"]
+        componentCount:
+          type: integer
+          minimum: 0
+        configurationRevision:
+          type: string
+        source:
+          $ref: "#/components/schemas/ConfigurationSource"
+    StackDiscovery:
+      type: object
+      additionalProperties: false
+      required: [stacks, invalidSources, scannedSourceCount]
+      properties:
+        stacks:
+          type: array
+          items:
+            $ref: "#/components/schemas/StackSummary"
+        invalidSources:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConfigurationDiagnostic"
+        scannedSourceCount:
+          type: integer
+          minimum: 0
+    ConfigurationSource:
+      type: object
+      additionalProperties: false
+      required: [path, format, revision, sizeBytes, modifiedAt]
+      properties:
+        path:
+          type: string
+        format:
+          const: yaml
+        revision:
+          type: string
+          minLength: 1
+        sizeBytes:
+          type: integer
+          minimum: 0
+        modifiedAt:
+          type: string
+          format: date-time
+    ConfigurationIssue:
+      type: object
+      additionalProperties: false
+      required: [stage, message, path]
+      properties:
+        stage:
+          enum: [discovery, parsing, schema, domain]
+        message:
+          type: string
+        path:
+          type: string
+        code:
+          type: [string, "null"]
+        line:
+          type: [integer, "null"]
+          minimum: 1
+        column:
+          type: [integer, "null"]
+          minimum: 1
+    ConfigurationDiagnostic:
+      type: object
+      additionalProperties: false
+      required: [sourcePath, source, issues]
+      properties:
+        sourcePath:
+          type: string
+        source:
+          oneOf:
+            - $ref: "#/components/schemas/ConfigurationSource"
+            - type: "null"
+        issues:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ConfigurationIssue"
+    StackView:
+      type: object
+      additionalProperties: false
+      required: [configuration, source, observations]
+      properties:
+        configuration:
+          $ref: "../domain/stack-config.schema.json"
+        source:
+          $ref: "#/components/schemas/ConfigurationSource"
+        observations:
+          $ref: "./runtime-snapshot.schema.json"
+    EditableStackSource:
+      type: object
+      additionalProperties: false
+      required: [stackId, stackName, source, mediaType, encoding, document]
+      properties:
+        stackId:
+          type: string
+        stackName:
+          type: string
+        source:
+          $ref: "#/components/schemas/ConfigurationSource"
+        mediaType:
+          const: application/yaml
+        encoding:
+          const: utf-8
+        document:
+          type: string
+    ConfigurationValidationPreviewRequest:
+      type: object
+      additionalProperties: false
+      required: [document]
+      properties:
+        document:
+          type: string
+          maxLength: 1048576
+    ConfigurationValidationPreview:
+      type: object
+      additionalProperties: false
+      required: [valid, candidateRevision, issues, configuration]
+      properties:
+        valid:
+          type: boolean
+        candidateRevision:
+          type: string
+          minLength: 1
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConfigurationIssue"
+        configuration:
+          oneOf:
+            - $ref: "../domain/stack-config.schema.json"
+            - type: "null"
+    ConfigurationWriteRequest:
+      type: object
+      additionalProperties: false
+      required: [originalRevision, document]
+      properties:
+        originalRevision:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        document:
+          type: string
+          maxLength: 1048576
+    ConfigurationWriteResult:
+      type: object
+      additionalProperties: false
+      required: [status, previousRevision, source, bytesWritten, replaced, deletedSecretSourceIds, stoppedComponentIds]
+      properties:
+        status: { const: saved }
+        previousRevision: { type: string }
+        source: { $ref: "#/components/schemas/ConfigurationSource" }
+        bytesWritten: { type: integer, minimum: 0 }
+        replaced: { type: boolean }
+        deletedSecretSourceIds:
+          type: array
+          items: { type: string }
+        stoppedComponentIds:
+          type: array
+          items: { type: string }
+    StackCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [stackId, document]
+      properties:
+        stackId: { type: string, pattern: "^[a-z][a-z0-9-]{0,79}$" }
+        document: { type: string, maxLength: 1048576 }
+    StackCreateResult:
+      type: object
+      additionalProperties: false
+      required: [status, stackId, source, bytesWritten]
+      properties:
+        status: { const: created }
+        stackId: { type: string }
+        source: { $ref: "#/components/schemas/ConfigurationSource" }
+        bytesWritten: { type: integer, minimum: 0 }
+    LifecycleActionRequest:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action: { enum: [start, stop, restart] }
+    LifecycleObservation:
+      type: object
+      additionalProperties: false
+      required: [componentId, provider, unitId, state, observedAt, detail, intentionallyActive, bootEnabled, result]
+      properties:
+        componentId: { type: string }
+        provider: { const: systemd-user }
+        unitId: { type: string }
+        state: { enum: [active, activating, deactivating, failed, inactive, unknown] }
+        observedAt: { type: string, format: date-time }
+        detail: { type: string }
+        intentionallyActive: { type: boolean }
+        bootEnabled: { type: boolean }
+        result: { type: [string, "null"] }
+    ComponentLifecycle:
+      type: object
+      additionalProperties: false
+      required: [eligible, actions, observation]
+      properties:
+        eligible: { type: boolean }
+        actions:
+          type: array
+          items: { enum: [start, stop, restart] }
+        observation:
+          oneOf:
+            - { $ref: "#/components/schemas/LifecycleObservation" }
+            - { type: "null" }
+    RecentLogs:
+      type: object
+      additionalProperties: false
+      required: [componentId, lines, truncated]
+      properties:
+        componentId: { type: string }
+        lines:
+          type: array
+          items: { type: string }
+        truncated: { type: boolean }
+    TunnelClient:
+      type: object
+      additionalProperties: false
+      required: [installed, executable, version, profileDirectory, credentialState]
+      properties:
+        installed: { type: boolean }
+        executable: { type: string }
+        version: { type: [string, "null"] }
+        profileDirectory: { type: string }
+        credentialState: { enum: [configured, missing, inaccessible] }
+    TunnelTarget:
+      type: object
+      additionalProperties: false
+      required: [kind, channel, command, url]
+      properties:
+        kind: { enum: [stdio, http] }
+        channel: { type: string }
+        command: { type: [string, "null"] }
+        url: { type: [string, "null"] }
+    TunnelProfile:
+      type: object
+      additionalProperties: false
+      required: [id, path, valid, diagnostic, revision, tunnelId, baseUrl, target, healthListenAddr, logLevel, logFormat, associatedStackId, lifecycle]
+      properties:
+        id: { type: [string, "null"] }
+        path: { type: string }
+        valid: { type: boolean }
+        diagnostic: { type: [string, "null"] }
+        revision: { type: [string, "null"] }
+        tunnelId: { type: [string, "null"] }
+        baseUrl: { type: [string, "null"] }
+        target:
+          oneOf:
+            - { $ref: "#/components/schemas/TunnelTarget" }
+            - { type: "null" }
+        healthListenAddr: { type: [string, "null"] }
+        logLevel: { type: [string, "null"] }
+        logFormat: { type: [string, "null"] }
+        associatedStackId: { type: [string, "null"] }
+        lifecycle:
+          oneOf:
+            - { $ref: "#/components/schemas/LifecycleObservation" }
+            - { type: "null" }
+    TunnelProfileCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [id, tunnelId, targetKind]
+      properties:
+        id: { type: string, pattern: "^[a-z][a-z0-9-]{0,79}$" }
+        tunnelId: { type: string, minLength: 1, maxLength: 256 }
+        targetKind: { enum: [stdio, http] }
+        channel: { type: string, pattern: "^[a-z][a-z0-9-]{0,79}$", default: main }
+        stackTarget: { type: [string, "null"], pattern: "^[a-z][a-z0-9-]{0,79}(?:/[a-z][a-z0-9-]{0,79})?$" }
+        url: { type: [string, "null"] }
+        baseUrl: { type: string, default: "https://api.openai.com" }
+        healthListenAddr: { type: string, default: "127.0.0.1:0" }
+        restart: { enum: [never, on-failure], default: on-failure }
+    TunnelProfileUpdateRequest:
+      allOf:
+        - $ref: "#/components/schemas/TunnelProfileCreateRequest"
+        - type: object
+          required: [originalRevision]
+          properties:
+            originalRevision: { type: string, pattern: "^[a-f0-9]{64}$" }
+    DeleteRequest:
+      type: object
+      additionalProperties: false
+      required: [originalRevision]
+      properties:
+        originalRevision: { type: string, pattern: "^[a-f0-9]{64}$" }
+    TunnelProfileDeleteResult:
+      type: object
+      additionalProperties: false
+      required: [status, profileId]
+      properties:
+        status: { const: deleted }
+        profileId: { type: string }
+    StackDeleteResult:
+      type: object
+      additionalProperties: false
+      required: [status, stackId, componentIds, stoppedComponentIds, deletedTunnelProfileIds, deletedSecretSourceIds]
+      properties:
+        status: { const: deleted }
+        stackId: { type: string }
+        componentIds:
+          type: array
+          items: { type: string }
+        stoppedComponentIds:
+          type: array
+          items: { type: string }
+        deletedTunnelProfileIds:
+          type: array
+          items: { type: string }
+        deletedSecretSourceIds:
+          type: array
+          items: { type: string }
+    TunnelCredentialRequest:
+      type: object
+      additionalProperties: false
+      required: [apiKey]
+      properties:
+        apiKey: { type: string, minLength: 1, maxLength: 16384 }
+    SecretValueRequest:
+      type: object
+      additionalProperties: false
+      required: [value]
+      properties:
+        value: { type: string, minLength: 1, maxLength: 65536, writeOnly: true }
+    SecretMetadata:
+      type: object
+      additionalProperties: false
+      required: [secretSourceId, state, updatedAt]
+      properties:
+        secretSourceId: { type: string }
+        state: { enum: [configured, missing, inaccessible] }
+        updatedAt: { type: [string, "null"], format: date-time }
+    Problem:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          oneOf:
+            - type: string
+            - type: object
+              additionalProperties: true

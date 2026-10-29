@@ -1,0 +1,177 @@
+modelVersion: "0.1"
+id: local-development
+name: Local Development
+description: A synthetic stack showing an MCP server, a controlled application, and a tunnel.
+
+runtimes:
+  - id: host
+    kind: host
+
+commands:
+  - id: filesystem-command
+    runtimeRef: host
+    executable:
+      kind: path-name
+      name: npx
+    args:
+      - -y
+      - "@modelcontextprotocol/server-filesystem@1.2.3"
+      - /workspace
+    workingDirectory: /workspace
+  - id: docs-app-command
+    runtimeRef: host
+    executable:
+      kind: local-path
+      path: ./bin/docs-app
+    args: [serve, "--port", "9010"]
+    environment:
+      - name: APP_MODE
+        valueFrom:
+          environmentSourceRef: app-mode
+      - name: DOCS_TOKEN
+        valueFrom:
+          secretSourceRef: docs-token
+  - id: tunnel-command
+    runtimeRef: host
+    executable:
+      kind: path-name
+      name: cloudflared
+    args: [tunnel, "--url", "http://127.0.0.1:9010"]
+
+environmentSources:
+  - id: app-mode
+    kind: host-environment
+    variable: MCP_STACK_APP_MODE
+
+secretSources:
+  - id: docs-token
+    kind: secret-reference
+    provider: control-plane-store
+
+endpoints:
+  - id: docs-http
+    origin: application-provided
+    applicationRef: docs-app
+    listener:
+      scheme: http
+      host: 127.0.0.1
+      port: 9010
+      path: /mcp
+  - id: docs-public
+    origin: tunnel-provided
+    tunnelRef: public-tunnel
+
+transports:
+  - id: filesystem-stdio
+    kind: stdio
+    commandRef: filesystem-command
+  - id: docs-http-transport
+    kind: streamable-http
+    endpointRef: docs-http
+
+mcpServers:
+  - id: filesystem-mcp
+    name: Filesystem MCP
+    transportRef: filesystem-stdio
+  - id: docs-mcp
+    name: Docs MCP endpoint
+    transportRef: docs-http-transport
+    providedByApplicationRef: docs-app
+
+applications:
+  - id: docs-app
+    name: Docs App
+    processCommandRef: docs-app-command
+    providedEndpointRefs: [docs-http]
+
+tunnels:
+  - id: public-tunnel
+    name: Public Tunnel
+    targetEndpointRef: docs-http
+    clientCommandRef: tunnel-command
+    lifecyclePolicyRef: managed-persistent
+    publicEndpointRef: docs-public
+
+lifecyclePolicies:
+  - id: session
+    ownership: session-owned
+    activation: on-demand
+  - id: managed-persistent
+    ownership: control-plane-managed
+    activation: persistent
+    provider: direct-child
+    restart: on-failure
+    stopTimeoutSeconds: 10
+
+healthChecks:
+  - id: docs-http-ready
+    name: Docs HTTP readiness
+    target:
+      endpointRef: docs-http
+    probe: http
+    role: readiness
+    expectedStatus: 200
+    timeoutSeconds: 3
+  - id: tunnel-connected
+    name: Tunnel connection
+    target:
+      tunnelRef: public-tunnel
+    probe: tunnel-connected
+    role: readiness
+    timeoutSeconds: 5
+
+logSources:
+  - id: filesystem-stderr
+    name: Filesystem MCP stderr
+    target:
+      commandRef: filesystem-command
+      stream: stderr
+    encoding: utf-8
+    framing: lines
+  - id: docs-stderr
+    name: Docs App stderr
+    target:
+      commandRef: docs-app-command
+      stream: stderr
+    encoding: utf-8
+    framing: lines
+  - id: tunnel-stderr
+    name: Tunnel stderr
+    target:
+      tunnelRef: public-tunnel
+    encoding: utf-8
+    framing: lines
+
+components:
+  - id: filesystem-mcp
+    name: Filesystem MCP
+    description: Session-owned native stdio MCP server launched through npx.
+    enabled: true
+    subject:
+      mcpServerRef: filesystem-mcp
+    lifecyclePolicyRef: session
+    logSourceRefs: [filesystem-stderr]
+  - id: docs-app
+    name: Docs App
+    description: Controlled local application that provides an HTTP MCP endpoint.
+    enabled: true
+    subject:
+      applicationRef: docs-app
+    lifecyclePolicyRef: managed-persistent
+    healthCheckRefs: [docs-http-ready]
+    logSourceRefs: [docs-stderr]
+  - id: public-tunnel
+    name: Public Tunnel
+    description: Managed tunnel exposing the Docs App endpoint.
+    enabled: true
+    subject:
+      tunnelRef: public-tunnel
+    lifecyclePolicyRef: managed-persistent
+    healthCheckRefs: [tunnel-connected]
+    logSourceRefs: [tunnel-stderr]
+
+dependencies:
+  - componentRef: public-tunnel
+    dependsOnRef: docs-app
+    requirement: ready
+    strength: hard

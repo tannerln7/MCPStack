@@ -1,0 +1,89 @@
+modelVersion: "0.1"
+id: analysis
+name: Analysis MCP
+runtimes:
+  - id: host
+    kind: host
+commands:
+  - id: headless-command
+    runtimeRef: host
+    executable: { kind: local-path, path: /opt/example/headless }
+    args: [--project, /var/lib/example/projects/Analysis.gpr]
+    environment:
+      - name: JAVA_HOME
+        valueFrom: { literal: /opt/example/java }
+        required: true
+  - id: bridge-command
+    runtimeRef: host
+    executable: { kind: local-path, path: /opt/example/bridge }
+    args: [--transport, streamable-http]
+    environment:
+      - name: BRIDGE_TOKEN
+        valueFrom: { secretSourceRef: bridge-token }
+        required: true
+secretSources:
+  - id: bridge-token
+    kind: secret-reference
+    provider: control-plane-store
+endpoints:
+  - id: headless-http
+    origin: application-provided
+    applicationRef: headless
+    listener: { scheme: http, host: 127.0.0.1, port: 18089, path: /health }
+  - id: bridge-http
+    origin: application-provided
+    applicationRef: bridge
+    listener: { scheme: http, host: 127.0.0.1, port: 8081, path: /mcp }
+transports:
+  - id: bridge-http
+    kind: streamable-http
+    endpointRef: bridge-http
+mcpServers:
+  - id: analysis-mcp
+    name: Analysis MCP
+    transportRef: bridge-http
+    providedByApplicationRef: bridge
+applications:
+  - id: headless
+    name: Headless server
+    processCommandRef: headless-command
+    providedEndpointRefs: [headless-http]
+  - id: bridge
+    name: HTTP bridge
+    processCommandRef: bridge-command
+    providedEndpointRefs: [bridge-http]
+lifecyclePolicies:
+  - id: managed
+    ownership: control-plane-managed
+    activation: persistent
+    provider: system-service
+    restart: on-failure
+    stopTimeoutSeconds: 45
+components:
+  - id: headless-component
+    name: Headless server
+    enabled: true
+    subject: { applicationRef: headless }
+    lifecyclePolicyRef: managed
+    healthCheckRefs: []
+    logSourceRefs: []
+  - id: bridge-component
+    name: HTTP bridge
+    enabled: true
+    subject: { applicationRef: bridge }
+    lifecyclePolicyRef: managed
+    healthCheckRefs: []
+    logSourceRefs: []
+  - id: mcp-component
+    name: Analysis MCP
+    enabled: true
+    subject: { mcpServerRef: analysis-mcp }
+dependencies:
+  - componentRef: bridge-component
+    dependsOnRef: headless-component
+    requirement: healthy
+    strength: hard
+  - componentRef: mcp-component
+    dependsOnRef: bridge-component
+    requirement: healthy
+    strength: hard

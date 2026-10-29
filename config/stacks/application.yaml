@@ -1,0 +1,52 @@
+# Install your own application at the example executable path before use.
+modelVersion: "0.1"
+id: example-application
+name: Example managed Application
+runtimes:
+  - id: host
+    kind: host
+commands:
+  - id: server-command
+    runtimeRef: host
+    executable: { kind: local-path, path: /opt/example-app/bin/server }
+    args: [--host, "127.0.0.1", --port, "8088"]
+    workingDirectory: /var/lib/mcp-stack/stack-data/example-application
+applications:
+  - id: server
+    name: Example server
+    processCommandRef: server-command
+    providedEndpointRefs: [health-http]
+endpoints:
+  - id: health-http
+    origin: application-provided
+    applicationRef: server
+    listener: { scheme: http, host: "127.0.0.1", port: 8088, path: /health }
+lifecyclePolicies:
+  - id: managed
+    ownership: control-plane-managed
+    activation: persistent
+    provider: system-service
+    restart: on-failure
+    stopTimeoutSeconds: 20
+healthChecks:
+  - id: http-health
+    name: Server HTTP health
+    target: { endpointRef: health-http }
+    probe: http
+    role: liveness
+    expectedStatus: 200
+    timeoutSeconds: 3
+logSources:
+  - id: journal
+    name: Server journal
+    target: { commandRef: server-command, stream: stderr }
+    encoding: utf-8
+    framing: lines
+components:
+  - id: server
+    name: Example server
+    enabled: true
+    subject: { applicationRef: server }
+    lifecyclePolicyRef: managed
+    healthCheckRefs: [http-health]
+    logSourceRefs: [journal]

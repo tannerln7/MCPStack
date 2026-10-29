@@ -1,0 +1,21 @@
+# Example address only; this file does not start or expose a server.
+modelVersion: "0.1"
+id: example-http
+name: Example HTTP MCP
+endpoints:
+  - id: remote
+    origin: configured
+    url: https://mcp.example.com/mcp
+transports:
+  - id: http
+    kind: streamable-http
+    endpointRef: remote
+mcpServers:
+  - id: remote-mcp
+    name: Example remote MCP
+    transportRef: http
+components:
+  - id: mcp
+    name: Example remote MCP
+    enabled: true
+    subject: { mcpServerRef: remote-mcp }

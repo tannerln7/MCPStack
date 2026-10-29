@@ -1,0 +1,261 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mcp-stack.local/schemas/domain/stack-config.schema.json",
+  "title": "Stack configuration",
+  "description": "Durable desired configuration for one stack. Runtime observations are excluded.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["modelVersion", "id", "name", "components"],
+  "properties": {
+    "modelVersion": { "const": "0.1" },
+    "id": { "$ref": "#/$defs/id" },
+    "name": { "$ref": "#/$defs/name" },
+    "description": { "type": "string" },
+    "runtimes": { "type": "array", "items": { "$ref": "#/$defs/runtime" }, "default": [] },
+    "commands": { "type": "array", "items": { "$ref": "#/$defs/command" }, "default": [] },
+    "environmentSources": { "type": "array", "items": { "$ref": "#/$defs/environmentSource" }, "default": [] },
+    "secretSources": { "type": "array", "items": { "$ref": "#/$defs/secretSource" }, "default": [] },
+    "endpoints": { "type": "array", "items": { "$ref": "#/$defs/endpoint" }, "default": [] },
+    "transports": { "type": "array", "items": { "$ref": "#/$defs/transport" }, "default": [] },
+    "mcpServers": { "type": "array", "items": { "$ref": "#/$defs/mcpServer" }, "default": [] },
+    "applications": { "type": "array", "items": { "$ref": "#/$defs/application" }, "default": [] },
+    "tunnels": { "type": "array", "items": { "$ref": "#/$defs/tunnel" }, "default": [] },
+    "lifecyclePolicies": { "type": "array", "items": { "$ref": "#/$defs/lifecyclePolicy" }, "default": [] },
+    "healthChecks": { "type": "array", "items": { "$ref": "#/$defs/healthCheck" }, "default": [] },
+    "logSources": { "type": "array", "items": { "$ref": "#/$defs/logSource" }, "default": [] },
+    "components": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/component" } },
+    "dependencies": { "type": "array", "items": { "$ref": "#/$defs/dependency" }, "default": [] }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "minLength": 1, "maxLength": 80 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "runtime": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["id", "kind"],
+          "properties": { "id": { "$ref": "#/$defs/id" }, "kind": { "const": "host" } }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["id", "kind", "engine", "image", "version"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" }, "kind": { "const": "container" },
+            "engine": { "enum": ["docker"] }, "image": { "type": "string", "minLength": 1 },
+            "version": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "executable": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false, "required": ["kind", "name"],
+          "properties": { "kind": { "const": "path-name" }, "name": { "type": "string", "minLength": 1 } }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["kind", "path"],
+          "properties": { "kind": { "const": "local-path" }, "path": { "type": "string", "minLength": 1 } }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["kind"],
+          "properties": { "kind": { "const": "image-entrypoint" } }
+        }
+      ]
+    },
+    "environmentValue": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false, "required": ["literal"],
+          "properties": { "literal": { "type": "string" } }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["environmentSourceRef"],
+          "properties": { "environmentSourceRef": { "$ref": "#/$defs/id" } }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["secretSourceRef"],
+          "properties": { "secretSourceRef": { "$ref": "#/$defs/id" } }
+        }
+      ]
+    },
+    "environmentBinding": {
+      "type": "object", "additionalProperties": false, "required": ["name", "valueFrom"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "valueFrom": { "$ref": "#/$defs/environmentValue" },
+        "required": {
+          "type": "boolean",
+          "description": "Whether absence prevents execution. Omitted means true."
+        }
+      }
+    },
+    "command": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "runtimeRef", "executable"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "runtimeRef": { "$ref": "#/$defs/id" },
+        "executable": { "$ref": "#/$defs/executable" },
+        "args": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "workingDirectory": { "type": "string" },
+        "environment": { "type": "array", "items": { "$ref": "#/$defs/environmentBinding" }, "default": [] }
+      }
+    },
+    "environmentSource": {
+      "type": "object", "additionalProperties": false, "required": ["id", "kind", "variable"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "kind": { "const": "host-environment" },
+        "variable": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" }
+      }
+    },
+    "secretSource": {
+      "type": "object", "additionalProperties": false, "required": ["id", "kind", "provider"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "kind": { "const": "secret-reference" },
+        "provider": { "const": "control-plane-store" }
+      }
+    },
+    "listener": {
+      "type": "object", "additionalProperties": false, "required": ["scheme", "host", "port", "path"],
+      "properties": {
+        "scheme": { "enum": ["http", "https"] }, "host": { "type": "string", "minLength": 1 },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "path": { "type": "string", "pattern": "^/" }
+      }
+    },
+    "endpoint": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false, "required": ["id", "origin", "url"],
+          "properties": { "id": { "$ref": "#/$defs/id" }, "origin": { "const": "configured" }, "url": { "type": "string", "format": "uri" } }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["id", "origin", "applicationRef", "listener"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" }, "origin": { "const": "application-provided" },
+            "applicationRef": { "$ref": "#/$defs/id" }, "listener": { "$ref": "#/$defs/listener" }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["id", "origin", "tunnelRef"],
+          "properties": { "id": { "$ref": "#/$defs/id" }, "origin": { "const": "tunnel-provided" }, "tunnelRef": { "$ref": "#/$defs/id" } }
+        }
+      ]
+    },
+    "transport": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false, "required": ["id", "kind", "commandRef"],
+          "properties": { "id": { "$ref": "#/$defs/id" }, "kind": { "const": "stdio" }, "commandRef": { "$ref": "#/$defs/id" } }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["id", "kind", "endpointRef"],
+          "properties": { "id": { "$ref": "#/$defs/id" }, "kind": { "const": "streamable-http" }, "endpointRef": { "$ref": "#/$defs/id" } }
+        }
+      ]
+    },
+    "mcpServer": {
+      "type": "object", "additionalProperties": false, "required": ["id", "name", "transportRef"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "name": { "$ref": "#/$defs/name" },
+        "transportRef": { "$ref": "#/$defs/id" },
+        "providedByApplicationRef": { "$ref": "#/$defs/id" },
+        "controlsApplicationRef": { "$ref": "#/$defs/id" }
+      }
+    },
+    "application": {
+      "type": "object", "additionalProperties": false, "required": ["id", "name"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "name": { "$ref": "#/$defs/name" },
+        "processCommandRef": { "$ref": "#/$defs/id" },
+        "providedEndpointRefs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "default": [] }
+      }
+    },
+    "tunnel": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "lifecyclePolicyRef"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "name": { "$ref": "#/$defs/name" },
+        "targetEndpointRef": { "$ref": "#/$defs/id" }, "targetMcpServerRef": { "$ref": "#/$defs/id" },
+        "clientCommandRef": { "$ref": "#/$defs/id" }, "clientProfileRef": { "$ref": "#/$defs/id" },
+        "lifecyclePolicyRef": { "$ref": "#/$defs/id" }, "publicEndpointRef": { "$ref": "#/$defs/id" }
+      },
+      "allOf": [
+        { "oneOf": [{ "required": ["targetEndpointRef"] }, { "required": ["targetMcpServerRef"] }] },
+        { "oneOf": [{ "required": ["clientCommandRef"] }, { "required": ["clientProfileRef"] }] }
+      ]
+    },
+    "lifecyclePolicy": {
+      "type": "object", "additionalProperties": false, "required": ["id", "ownership", "activation"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "ownership": { "enum": ["session-owned", "control-plane-managed", "externally-managed"] },
+        "activation": { "enum": ["on-demand", "persistent"] },
+        "provider": { "enum": ["direct-child", "system-service"] },
+        "restart": { "enum": ["never", "on-failure"] },
+        "stopTimeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 300 }
+      }
+    },
+    "healthTarget": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["componentRef"], "properties": { "componentRef": { "$ref": "#/$defs/id" } } },
+        { "type": "object", "additionalProperties": false, "required": ["endpointRef"], "properties": { "endpointRef": { "$ref": "#/$defs/id" } } },
+        { "type": "object", "additionalProperties": false, "required": ["mcpServerRef"], "properties": { "mcpServerRef": { "$ref": "#/$defs/id" } } },
+        { "type": "object", "additionalProperties": false, "required": ["tunnelRef"], "properties": { "tunnelRef": { "$ref": "#/$defs/id" } } }
+      ]
+    },
+    "healthCheck": {
+      "type": "object", "additionalProperties": false, "required": ["id", "name", "target", "probe", "role"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "name": { "$ref": "#/$defs/name" }, "target": { "$ref": "#/$defs/healthTarget" },
+        "probe": { "enum": ["process-running", "http", "mcp-connect", "tunnel-connected"] },
+        "role": { "enum": ["readiness", "liveness"] },
+        "expectedStatus": { "type": "integer", "minimum": 100, "maximum": 599 },
+        "timeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 60 }
+      }
+    },
+    "logTarget": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false, "required": ["commandRef", "stream"],
+          "properties": { "commandRef": { "$ref": "#/$defs/id" }, "stream": { "enum": ["stdout", "stderr"] } }
+        },
+        { "type": "object", "additionalProperties": false, "required": ["mcpServerRef"], "properties": { "mcpServerRef": { "$ref": "#/$defs/id" } } },
+        { "type": "object", "additionalProperties": false, "required": ["tunnelRef"], "properties": { "tunnelRef": { "$ref": "#/$defs/id" } } }
+      ]
+    },
+    "logSource": {
+      "type": "object", "additionalProperties": false, "required": ["id", "name", "target"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "name": { "$ref": "#/$defs/name" }, "target": { "$ref": "#/$defs/logTarget" },
+        "encoding": { "enum": ["utf-8"] }, "framing": { "enum": ["lines", "mcp-logging"] }
+      }
+    },
+    "componentSubject": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["mcpServerRef"], "properties": { "mcpServerRef": { "$ref": "#/$defs/id" } } },
+        { "type": "object", "additionalProperties": false, "required": ["applicationRef"], "properties": { "applicationRef": { "$ref": "#/$defs/id" } } },
+        { "type": "object", "additionalProperties": false, "required": ["tunnelRef"], "properties": { "tunnelRef": { "$ref": "#/$defs/id" } } }
+      ]
+    },
+    "component": {
+      "type": "object", "additionalProperties": false, "required": ["id", "name", "enabled", "subject"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "name": { "$ref": "#/$defs/name" }, "description": { "type": "string" },
+        "enabled": { "type": "boolean" }, "subject": { "$ref": "#/$defs/componentSubject" },
+        "lifecyclePolicyRef": { "$ref": "#/$defs/id" },
+        "healthCheckRefs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "default": [] },
+        "logSourceRefs": { "type": "array", "items": { "$ref": "#/$defs/id" }, "default": [] }
+      }
+    },
+    "dependency": {
+      "type": "object", "additionalProperties": false,
+      "required": ["componentRef", "dependsOnRef", "requirement", "strength"],
+      "properties": {
+        "componentRef": { "$ref": "#/$defs/id" }, "dependsOnRef": { "$ref": "#/$defs/id" },
+        "requirement": { "enum": ["started", "ready", "healthy", "mcp-connected", "completed"] },
+        "strength": { "enum": ["hard", "order-only"] }
+      }
+    }
+  }
+}

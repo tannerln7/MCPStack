@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mcp-stack.local/schemas/api/runtime-snapshot.schema.json",
+  "title": "Runtime snapshot",
+  "description": "Discardable observations for a configured stack. This is never durable desired configuration.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["stackId", "configurationRevision", "observedAt", "components", "executionSessions", "processInstances", "mcpSessions", "endpointObservations", "healthObservations", "logStreams"],
+  "properties": {
+    "stackId": { "$ref": "#/$defs/id" },
+    "configurationRevision": { "type": "string", "minLength": 1 },
+    "observedAt": { "type": "string", "format": "date-time" },
+    "components": { "type": "array", "items": { "$ref": "#/$defs/componentObservation" } },
+    "executionSessions": { "type": "array", "items": { "$ref": "#/$defs/executionSessionObservation" } },
+    "processInstances": { "type": "array", "items": { "$ref": "#/$defs/processInstance" } },
+    "mcpSessions": { "type": "array", "items": { "$ref": "#/$defs/mcpSession" } },
+    "endpointObservations": { "type": "array", "items": { "$ref": "#/$defs/endpointObservation" } },
+    "healthObservations": { "type": "array", "items": { "$ref": "#/$defs/healthObservation" } },
+    "logStreams": { "type": "array", "items": { "$ref": "#/$defs/logStream" } }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "componentObservation": {
+      "type": "object", "additionalProperties": false, "required": ["componentId", "status", "observedAt"],
+      "properties": {
+        "componentId": { "$ref": "#/$defs/id" },
+        "status": { "enum": ["not-observed", "starting", "running", "available", "degraded", "unavailable", "stopped"] },
+        "observedAt": { "type": "string", "format": "date-time" }, "detail": { "type": "string" }
+      }
+    },
+    "executionSessionObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["executionId", "componentId", "mcpServerRef", "transport", "state", "configurationRevision", "configurationRevisionMatches", "configurationIdentityMatches", "launchedAt", "observedAt"],
+      "properties": {
+        "executionId": { "type": "string", "format": "uuid" },
+        "componentId": { "$ref": "#/$defs/id" },
+        "mcpServerRef": { "$ref": "#/$defs/id" },
+        "transport": { "const": "stdio" },
+        "state": { "enum": ["active", "stale"] },
+        "configurationRevision": { "type": "string", "minLength": 1 },
+        "configurationRevisionMatches": { "type": "boolean" },
+        "configurationIdentityMatches": { "type": "boolean" },
+        "launchedAt": { "type": "string", "format": "date-time" },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "pid": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "processInstance": {
+      "type": "object", "additionalProperties": false, "required": ["instanceId", "componentId", "commandRef", "phase", "observedAt"],
+      "properties": {
+        "instanceId": { "type": "string" }, "componentId": { "$ref": "#/$defs/id" }, "commandRef": { "$ref": "#/$defs/id" },
+        "phase": { "enum": ["starting", "running", "stopping", "exited", "failed"] }, "pid": { "type": "integer", "minimum": 1 },
+        "observedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "mcpSession": {
+      "type": "object", "additionalProperties": false, "required": ["sessionId", "mcpServerRef", "transportRef", "phase", "observedAt"],
+      "properties": {
+        "sessionId": { "type": "string" }, "mcpServerRef": { "$ref": "#/$defs/id" }, "transportRef": { "$ref": "#/$defs/id" },
+        "processInstanceRef": { "type": "string" }, "phase": { "enum": ["connecting", "connected", "closing", "closed", "failed"] },
+        "protocolRevision": { "type": "string" }, "observedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "endpointObservation": {
+      "type": "object", "additionalProperties": false, "required": ["endpointRef", "reachable", "observedAt"],
+      "properties": { "endpointRef": { "$ref": "#/$defs/id" }, "resolvedAddress": { "type": "string" }, "reachable": { "type": "boolean" }, "observedAt": { "type": "string", "format": "date-time" } }
+    },
+    "healthObservation": {
+      "type": "object", "additionalProperties": false, "required": ["healthCheckRef", "status", "observedAt"],
+      "properties": {
+        "healthCheckRef": { "$ref": "#/$defs/id" }, "status": { "enum": ["unknown", "passing", "failing"] },
+        "reason": { "type": ["string", "null"] },
+        "latencyMs": { "type": ["number", "null"], "minimum": 0 },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "logStream": {
+      "type": "object", "additionalProperties": false, "required": ["streamId", "logSourceRef", "phase", "observedAt"],
+      "properties": { "streamId": { "type": "string" }, "logSourceRef": { "$ref": "#/$defs/id" }, "phase": { "enum": ["open", "closed", "failed"] }, "observedAt": { "type": "string", "format": "date-time" } }
+    }
+  }
+}

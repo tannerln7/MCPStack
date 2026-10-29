@@ -1,0 +1,81 @@
+# One operational unit: a persistent application and its session-owned MCP adapter.
+modelVersion: "0.1"
+id: example-composite
+name: Example Application and MCP adapter
+runtimes:
+  - id: host
+    kind: host
+commands:
+  - id: server-command
+    runtimeRef: host
+    executable: { kind: local-path, path: /opt/example-app/bin/server }
+    args: [--host, "127.0.0.1", --port, "8090"]
+    workingDirectory: /var/lib/mcp-stack/stack-data/example-composite
+  - id: adapter-command
+    runtimeRef: host
+    executable: { kind: local-path, path: /opt/example-app/bin/mcp-adapter }
+    args: [--transport, stdio]
+    environment:
+      - name: EXAMPLE_SERVER_URL
+        valueFrom: { literal: "http://127.0.0.1:8090" }
+applications:
+  - id: server
+    name: Example server
+    processCommandRef: server-command
+    providedEndpointRefs: [server-http]
+endpoints:
+  - id: server-http
+    origin: application-provided
+    applicationRef: server
+    listener: { scheme: http, host: "127.0.0.1", port: 8090, path: /health }
+transports:
+  - id: stdio
+    kind: stdio
+    commandRef: adapter-command
+mcpServers:
+  - id: adapter
+    name: Example MCP adapter
+    transportRef: stdio
+    controlsApplicationRef: server
+lifecyclePolicies:
+  - id: managed
+    ownership: control-plane-managed
+    activation: persistent
+    provider: system-service
+    restart: on-failure
+    stopTimeoutSeconds: 20
+  - id: client-session
+    ownership: session-owned
+    activation: on-demand
+healthChecks:
+  - id: http-health
+    name: Server HTTP health
+    target: { endpointRef: server-http }
+    probe: http
+    role: liveness
+    expectedStatus: 200
+    timeoutSeconds: 3
+logSources:
+  - id: journal
+    name: Server journal
+    target: { commandRef: server-command, stream: stderr }
+    encoding: utf-8
+    framing: lines
+components:
+  - id: mcp
+    name: Example MCP adapter
+    enabled: true
+    subject: { mcpServerRef: adapter }
+    lifecyclePolicyRef: client-session
+  - id: server
+    name: Example server
+    enabled: true
+    subject: { applicationRef: server }
+    lifecyclePolicyRef: managed
+    healthCheckRefs: [http-health]
+    logSourceRefs: [journal]
+dependencies:
+  - componentRef: mcp
+    dependsOnRef: server
+    requirement: healthy
+    strength: hard
