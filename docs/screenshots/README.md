@@ -11,8 +11,9 @@ they do not call systemd. Health examples do not perform network probes.
 
 ## Desktop
 
-Captured with a **1440 × 1000** viewport. Collection and relationship images
-include the full page; secret bindings are an element capture.
+Desktop screen captures use a consistent **1440 × 1000** viewport, not a
+full-page export, so the sidebar fills the image height. Secret bindings are
+an intentional element capture.
 
 <details>
 <summary>View desktop screenshots</summary>
