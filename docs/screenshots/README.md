@@ -23,14 +23,14 @@ an intentional element capture.
 Bring local and remote MCP resources into one searchable collection. Independent
 runtime and health indicators help you choose where to look next.
 
-![Stack collection in light mode](stacks-desktop-light.png)
+![Stack collection in light mode](stacks-desktop-light-viewport.png)
 
 ### The configured world — dark
 
 Switch to a dark appearance without losing readable controls or meaningful
 status colors. The same collection keeps your environment in view.
 
-![Stack collection in dark mode](stacks-desktop-dark.png)
+![Stack collection in dark mode](stacks-desktop-dark-viewport.png)
 
 ### Create a Stack
 
@@ -44,7 +44,7 @@ them. Validate your settings before saving.
 Keep an MCP adapter and the application it uses in one operational Stack.
 Explore their dependencies, endpoints, and independent tunnel controls.
 
-![Composite Stack with expanded configuration relationships](composite-stack-desktop.png)
+![Composite Stack with expanded configuration relationships](composite-stack-desktop-viewport.png)
 
 ### Applications, health, and logs
 

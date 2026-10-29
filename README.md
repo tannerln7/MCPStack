@@ -19,8 +19,8 @@ Find every Stack in one searchable collection, whether it runs locally or
 connects over HTTP. Runtime and health indicators help you see what needs attention.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/stacks-desktop-dark.png">
-  <img src="docs/screenshots/stacks-desktop-light.png" alt="MCPStack desktop collection showing MCP servers, a composite browser automation Stack, runtime and health indicators, and search and filter controls.">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/stacks-desktop-dark-viewport.png">
+  <img src="docs/screenshots/stacks-desktop-light-viewport.png" alt="MCPStack desktop collection showing MCP servers, a composite browser automation Stack, runtime and health indicators, and search and filter controls.">
 </picture>
 
 *Shown with demo configurations and simulated observations—not live services or credentials.*
@@ -40,7 +40,7 @@ your changes. Validate before saving while keeping files as the source of truth.
 Keep an MCP adapter, its application, and its tunnel together without merging
 their identities or lifecycles. Explore the relationships to see what depends on what.
 
-![Composite browser automation Stack with components, a tunnel, and expanded configuration relationships](docs/screenshots/composite-stack-desktop.png)
+![Composite browser automation Stack with components, a tunnel, and expanded configuration relationships](docs/screenshots/composite-stack-desktop-viewport.png)
 
 ### Control services and understand their behavior
 

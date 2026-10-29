@@ -50,7 +50,7 @@ choose **New Stack** to add one.
 Bring local commands, HTTP endpoints, and managed applications into one
 searchable collection. This populated example uses demo data; a new installation starts empty.
 
-![MCPStack collection with sample Stacks, search/filter controls, runtime status, and health](screenshots/stacks-desktop-light.png)
+![MCPStack collection with sample Stacks, search/filter controls, runtime status, and health](screenshots/stacks-desktop-light-viewport.png)
 
 </details>
 

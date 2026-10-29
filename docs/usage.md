@@ -37,7 +37,7 @@ Validation checks the candidate before it becomes your Stack's saved source.
 Related applications and adapters can share a Stack while remaining separate
 Components. The relationship view makes their dependencies and endpoints easy to follow.
 
-![Composite Stack with separate MCP and Application Components and expanded relationships](screenshots/composite-stack-desktop.png)
+![Composite Stack with separate MCP and Application Components and expanded relationships](screenshots/composite-stack-desktop-viewport.png)
 
 </details>
 
